@@ -1,0 +1,58 @@
+name: Build for macOS
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'cmake/**'
+      - 'meos/**'
+      - 'mobilitydb/**'
+      - 'postgis/**'
+      - 'CMakeLists.txt'
+    branch_ignore: gh-pages
+  pull_request:
+    paths:
+      - 'cmake/**'
+      - 'meos/**'
+      - 'mobilitydb/**'
+      - 'postgis/**'
+      - 'CMakeLists.txt'
+    branch_ignore: gh-pages
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: install deps
+        run: |
+          brew install postgresql postgis proj gsl
+
+      - name: Configure
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+
+      - name: Build
+        run: |
+          cd build
+          make -j
+          sudo make install
+
+      - name: test install
+        run: |
+          mkdir /usr/local/var/postgres
+          initdb -D /usr/local/var/postgres
+          pg_ctl -D /usr/local/var/postgres start
+          createdb ___mobdb___test___
+          psql -d ___mobdb___test___ -c "CREATE EXTENSION mobilitydb CASCADE; SELECT mobilitydb_version();"
+
+      - name: Test
+        run: |
+          cd build
+          make test
